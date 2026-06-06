@@ -39,6 +39,20 @@ The trimming script discovered input files with this pattern:
 
 For each R1 file, the matching R2 file was inferred by replacing `_R1_001.fastq.gz` with `_R2_001.fastq.gz`.
 
+Parameters used:
+
+| Parameter | Value |
+| --- | --- |
+| Raw FASTQ directory | `/gpfs/scratch/qp252951/OzanGundogdu_SOUK011275` |
+| R1 discovery pattern | `*_R1_001.fastq.gz` |
+| R2 pairing rule | replace `_R1_001.fastq.gz` with `_R2_001.fastq.gz` |
+| R1 input count | 96 |
+| R2 input count | 96 |
+| Sample/run prefix count | 48 |
+| Lane IDs | `L001`, `L007` |
+| Read layout | paired-end |
+| Read length before filtering | 151 bp + 151 bp |
+
 ## 2. Adapter and Quality Trimming
 
 Trimming was run from:
@@ -53,6 +67,22 @@ Default parameters in the script:
 FASTQ_DIR=/gpfs/scratch/qp252951/OzanGundogdu_SOUK011275
 THREADS=4
 ```
+
+SLURM parameters from `run_trimming.slurm`:
+
+| Parameter | Value |
+| --- | --- |
+| Job name | `fastp_trim` |
+| Partition | `compute` |
+| Nodes | 1 |
+| Tasks | 1 |
+| CPUs per task | 4 |
+| Memory | 80G |
+| Time limit | 24:00:00 |
+| Conda/micromamba environment | `rna-seq` |
+| Working directory | `/gpfs/scratch/qp252951/trimming` |
+| Exported `FASTQ_DIR` | `/gpfs/scratch/qp252951/OzanGundogdu_SOUK011275` |
+| Exported `THREADS` | `${SLURM_CPUS_PER_TASK}` |
 
 For each paired-end lane file, fastp was run with:
 
@@ -73,6 +103,25 @@ fastp \
   --length_required 20 \
   --thread 4
 ```
+
+fastp parameters used:
+
+| fastp option | Value used | Purpose |
+| --- | --- | --- |
+| `-i` | input R1 FASTQ | read 1 input |
+| `-I` | input R2 FASTQ | read 2 input |
+| `-o` | `<sample>_R1_trimmed.fastq.gz` | read 1 trimmed output |
+| `-O` | `<sample>_R2_trimmed.fastq.gz` | read 2 trimmed output |
+| `--detect_adapter_for_pe` | enabled | detect adapters for paired-end data |
+| `--cut_front` | enabled | trim low-quality bases from read starts |
+| `--cut_tail` | enabled | trim low-quality bases from read ends |
+| `--cut_window_size` | 4 | sliding window size |
+| `--cut_mean_quality` | 20 | mean quality threshold for trimming |
+| `--qualified_quality_phred` | 20 | base quality threshold for qualified bases |
+| `--unqualified_percent_limit` | 40 | maximum percent of unqualified bases per read |
+| `--n_base_limit` | 5 | maximum allowed `N` bases per read |
+| `--length_required` | 20 | minimum retained read length |
+| `--thread` | 4 | processing threads |
 
 Important filtering choices:
 
@@ -109,6 +158,18 @@ The run log for this analysis records:
 ```bash
 multiqc /gpfs/scratch/qp252951/trimming -o /gpfs/scratch/qp252951/trimming/trimmed_fastqc_results --force
 ```
+
+MultiQC parameters used for the fastp summary:
+
+| Parameter | Value |
+| --- | --- |
+| Search path | `/gpfs/scratch/qp252951/trimming` |
+| Output directory | `/gpfs/scratch/qp252951/trimming/trimmed_fastqc_results` |
+| Existing output handling | `--force` |
+| Log file | `/gpfs/scratch/qp252951/trimming/trimmed_fastqc_results/run_multiqc_trimmed.log` |
+| Reports detected | 96 fastp reports |
+| MultiQC output data | `/gpfs/scratch/qp252951/trimming/trimmed_fastqc_results/multiqc_data` |
+| MultiQC HTML report | `/gpfs/scratch/qp252951/trimming/trimmed_fastqc_results/multiqc_report.html` |
 
 Observed MultiQC run details:
 
@@ -155,6 +216,22 @@ SLURM resources and array settings:
 #SBATCH --time=04:00:00
 ```
 
+FastQC array parameters used:
+
+| Parameter | Value |
+| --- | --- |
+| Job name | `trimmed_fastqc` |
+| Array range | `1-192%16` |
+| CPUs per task | 1 |
+| Memory | 4G |
+| Time limit | 04:00:00 |
+| Input list | `/gpfs/scratch/qp252951/trimming/trimmed_fastqc_results/fastQC_report/fastqc_inputs.txt` |
+| Output directory | `/gpfs/scratch/qp252951/trimming/trimmed_fastqc_results/fastQC_report` |
+| Log directory | `/gpfs/scratch/qp252951/trimming/trimmed_fastqc_results/fastQC_report/logs` |
+| FastQC module | `fastqc/0.12.1-gcc-12.2.0` |
+| FastQC threads | `${SLURM_CPUS_PER_TASK}` = 1 |
+| Skip rule | skip if both `${base}_fastqc.html` and `${base}_fastqc.zip` already exist |
+
 FastQC module and command:
 
 ```bash
@@ -185,6 +262,19 @@ multiqc /gpfs/scratch/qp252951/trimming/trimmed_fastqc_results/fastQC_report \
   --force
 ```
 
+MultiQC parameters used for the FastQC-only report:
+
+| Parameter | Value |
+| --- | --- |
+| Search path | `/gpfs/scratch/qp252951/trimming/trimmed_fastqc_results/fastQC_report` |
+| Module filter | `--module fastqc` |
+| Output directory | `/gpfs/scratch/qp252951/trimming/trimmed_fastqc_results/multiqc_fastqc_linked` |
+| Output filename | `multiqc_report.html` |
+| Existing output handling | `--force` |
+| Input reports | 192 FastQC reports |
+| Linked copy | `/gpfs/scratch/qp252951/trimming/trimmed_fastqc_results/multiqc_fastqc_report_linked.html` |
+| Row-link target directory | `/gpfs/scratch/qp252951/trimming/trimmed_fastqc_results/fastQC_report` |
+
 Observed details:
 
 - MultiQC version: 1.35
@@ -207,6 +297,18 @@ SortMeRNA was installed in the `rna-seq` micromamba environment using:
 /gpfs/scratch/qp252951/sortmeRNA/install_sortmerna.sh
 ```
 
+SortMeRNA install parameters:
+
+| Parameter | Value |
+| --- | --- |
+| Environment name | `rna-seq` |
+| Micromamba executable | `/data/home/qp252951/.local/bin/micromamba` |
+| Micromamba root prefix | `/data/home/qp252951/micromamba` |
+| Package cache | `/gpfs/scratch/qp252951/.mamba/pkgs` |
+| XDG cache | `/gpfs/scratch/qp252951/.cache` |
+| Channels | `conda-forge`, `bioconda` |
+| Package installed | `sortmerna` |
+
 The rRNA reference FASTA files were downloaded to:
 
 ```bash
@@ -221,6 +323,15 @@ Reference files used:
 - `silva-euk-28s-id98.fasta`
 - `rfam-5s-database-id98.fasta`
 - `rfam-5.8s-database-id98.fasta`
+
+rRNA reference download parameters:
+
+| Parameter | Value |
+| --- | --- |
+| Reference directory | `/gpfs/scratch/qp252951/sortmeRNA/rRNA reference genome` |
+| Base URL | `https://sources.debian.org/data/main/s/sortmerna/2.1-3/rRNA_databases` |
+| Download command | `curl -L --fail --retry 3 --retry-delay 5` |
+| Validation | non-empty file and first byte is `>` |
 
 The SLURM wrapper was:
 
@@ -240,6 +351,20 @@ SLURM resources:
 #SBATCH --time=24:00:00
 ```
 
+SortMeRNA SLURM parameters:
+
+| Parameter | Value |
+| --- | --- |
+| Job name | `sortmerna_first5` |
+| Partition | `compute` |
+| Nodes | 1 |
+| Tasks | 1 |
+| CPUs per task | 8 |
+| Memory | 80G |
+| Time limit | 24:00:00 |
+| Conda/micromamba environment | `rna-seq` |
+| Working directory | `/gpfs/scratch/qp252951/sortmeRNA` |
+
 Environment and directories:
 
 ```bash
@@ -247,6 +372,22 @@ TRIM_DIR=/gpfs/scratch/qp252951/trimming
 OUT_DIR=/gpfs/scratch/qp252951/sortmeRNA/first5_sortmerna
 THREADS=8
 ```
+
+SortMeRNA script parameters:
+
+| Parameter | Value |
+| --- | --- |
+| `TRIM_DIR` | `/gpfs/scratch/qp252951/trimming` |
+| `OUT_DIR` | `/gpfs/scratch/qp252951/sortmeRNA/first5_sortmerna` |
+| `THREADS` | 8 |
+| `REF_FASTA` | empty unless manually set |
+| `REF_FASTA_LIST` | six colon-separated rRNA reference FASTA paths |
+| `REBUILD_COMBINED` | 0 |
+| Combined input directory | `$OUT_DIR/combined_inputs` |
+| Results directory | `$OUT_DIR/results` |
+| Work directory base | `$OUT_DIR/work` |
+| Sample discovery pattern | `$TRIM_DIR/*_L*_R1_trimmed.fastq.gz` |
+| Sample prefix rule | remove `_L*_R1_trimmed.fastq.gz` |
 
 Before SortMeRNA, lane-level trimmed reads were merged by sample prefix:
 
@@ -275,6 +416,21 @@ sortmerna \
   --out2 \
   --threads 8
 ```
+
+SortMeRNA command parameters:
+
+| SortMeRNA option | Value used |
+| --- | --- |
+| `--ref` | six rRNA FASTA references listed above |
+| `--reads` | combined R1 trimmed FASTQ |
+| `--reads` | combined R2 trimmed FASTQ |
+| `--workdir` | `$OUT_DIR/work/${SAMPLE}` |
+| `--aligned` | `$OUT_DIR/results/${SAMPLE}_rRNA` |
+| `--other` | `$OUT_DIR/results/${SAMPLE}_non_rRNA` |
+| `--fastx` | enabled |
+| `--paired_in` | enabled |
+| `--out2` | enabled |
+| `--threads` | 8 |
 
 Current observed SortMeRNA output status:
 
